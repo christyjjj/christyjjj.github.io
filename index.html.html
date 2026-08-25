@@ -1,0 +1,2109 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Моя Библиотека - Читалка книг</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <style>
+        /* Основные стили */
+        :root {
+            --primary: #de9ec4;
+            --secondary: #C2B2B4;
+            --accent: #53687E;
+            --bg: #F5F3F4;
+            --text: #2D2D2D;
+            --card-bg: #FFFFFF;
+            --shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .header {
+            background: var(--primary);
+            color: white;
+            padding: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: white;
+            color: var(--primary);
+        }
+
+        .btn-primary:hover {
+            background: var(--secondary);
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #d32f2f;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        .search-bar {
+            margin-bottom: 1rem;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid var(--secondary);
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        .filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+        }
+
+        .filter-group {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .filter-select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--secondary);
+            border-radius: 5px;
+            background: white;
+        }
+
+        .filter-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            padding: 1rem;
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+        }
+
+        .tag {
+            background: var(--secondary);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+
+        .tag.active {
+            background: var(--primary);
+        }
+
+        .tag-add {
+            background: transparent;
+            border: 2px dashed var(--secondary);
+            color: var(--secondary);
+        }
+
+        .tag-add:hover {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .books-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .book-card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            transition: transform 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .book-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .book-cover {
+            width: 100%;
+            height: 250px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 3rem;
+        }
+
+        .book-info {
+            padding: 1rem;
+        }
+
+        .book-title {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .book-meta {
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .book-stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .book-actions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .action-btn {
+            background: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .action-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .status-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .status-read {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .status-want {
+            background: #FF9800;
+            color: white;
+        }
+
+        .status-reading {
+            background: #2196F3;
+            color: white;
+        }
+
+        .folders-sidebar {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 1rem;
+        }
+
+        .folder-item {
+            padding: 0.5rem;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background 0.3s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .folder-item:hover {
+            background: var(--bg);
+        }
+
+        .folder-item.active {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .folder-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .folder-action-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 0.2rem;
+            border-radius: 3px;
+            transition: all 0.3s;
+        }
+
+        .folder-action-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--secondary);
+            border-radius: 5px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .reader-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            z-index: 2000;
+            flex-direction: column;
+        }
+
+        .reader-container.active {
+            display: flex;
+        }
+
+        .reader-header {
+            background: var(--primary);
+            color: white;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .reader-content {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .reader-text {
+            font-size: 1.1rem;
+            line-height: 1.8;
+        }
+
+        .reader-controls {
+            padding: 1rem;
+            background: var(--bg);
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 768px) {
+            .books-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 1rem;
+            }
+
+            .book-cover {
+                height: 180px;
+                font-size: 2rem;
+            }
+
+            .filters {
+                flex-direction: column;
+            }
+
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .header-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .modal-content {
+                padding: 1rem;
+                margin: 1rem;
+            }
+
+            .reader-content {
+                padding: 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .books-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                gap: 0.75rem;
+            }
+
+            .book-cover {
+                height: 150px;
+                font-size: 1.5rem;
+            }
+
+            .book-info {
+                padding: 0.75rem;
+            }
+
+            .book-title {
+                font-size: 0.9rem;
+            }
+        }
+
+        .drop-zone {
+            border: 2px dashed var(--secondary);
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 1rem;
+        }
+
+        .drop-zone.dragover {
+            background: rgba(222, 158, 196, 0.1);
+            border-color: var(--primary);
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 1rem;
+            border-radius: 5px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease;
+            z-index: 3000;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        /* Индикатор прогресса загрузки */
+        #uploadProgress {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            z-index: 9999;
+            min-width: 300px;
+        }
+
+        #uploadProgress .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+
+        #uploadProgress .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: var(--primary);
+            transition: width 0.3s;
+        }
+
+        #uploadProgress .progress-text {
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+    <!-- Индикатор прогресса загрузки -->
+    <div id="uploadProgress">
+        <h3 style="margin-bottom:1rem;">📤 Загрузка файлов...</h3>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-text">
+            <span id="progressText">0 из 0</span>
+            <span id="progressPercent">0%</span>
+        </div>
+    </div>
+
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">📚 Моя Библиотека</div>
+            <div class="header-actions">
+                <button class="btn btn-primary" onclick="showUploadModal()">📤 Загрузить книгу</button>
+                <button class="btn btn-primary" onclick="showCreateFolderModal()">📁 Новая папка</button>
+                <button class="btn btn-primary" onclick="toggleView()">🔍 Вид</button>
+                <button class="btn btn-primary" onclick="exportData()">💾 Экспорт</button>
+                <button class="btn btn-primary" onclick="document.getElementById('importInput').click()">📥 Импорт</button>
+                <button class="btn btn-danger" onclick="clearAllBooks()">🗑️ Очистить всё</button>
+                <input type="file" id="importInput" accept=".json" style="display: none;" onchange="importData(event)">
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="stats-bar">
+            <div class="stat-item">
+                <div class="stat-number" id="totalBooks">0</div>
+                <div class="stat-label">Всего книг</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="readBooks">0</div>
+                <div class="stat-label">Прочитано</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="wantBooks">0</div>
+                <div class="stat-label">Хочу прочитать</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="totalPages">0</div>
+                <div class="stat-label">Всего страниц</div>
+            </div>
+        </div>
+
+        <div class="search-bar">
+            <input type="text" class="search-input" placeholder="🔍 Поиск по названию, автору, тегам..." id="searchInput" oninput="filterBooks()">
+        </div>
+
+        <div class="filters">
+    <div class="filter-group">
+        <select class="filter-select" id="sizeFilter" onchange="filterBooks()">
+            <option value="">Все размеры</option>
+            <option value="mini">Мини (до 20 стр.)</option>
+            <option value="midi">Миди (20-70 стр.)</option>
+            <option value="maxi">Макси (более 70 стр.)</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <select class="filter-select" id="fandomFilter" onchange="filterBooks()">
+            <option value="">Все фандомы</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <select class="filter-select" id="statusFilter" onchange="filterBooks()">
+            <option value="">Все статусы</option>
+            <option value="read">Прочитано</option>
+            <option value="want">Хочу прочитать</option>
+            <option value="reading">Читаю</option>
+            <option value="unread">Не прочитано</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <select class="filter-select" id="sortFilter" onchange="filterBooks()">
+            <option value="date_added">По дате добавления</option>
+            <option value="alphabet">По алфавиту</option>
+            <option value="date_read">По дате прочтения</option>
+            <option value="pages">По количеству страниц</option>
+        </select>
+    </div>
+</div>
+
+        <div class="filter-tags" id="tagsContainer"></div>
+        <div class="folders-sidebar" id="foldersContainer"></div>
+        <div class="books-grid" id="booksGrid"></div>
+    </div>
+
+    <div class="modal" id="uploadModal">
+        <div class="modal-content">
+            <h2>📤 Загрузить книги</h2>
+            <div class="drop-zone" id="dropZone">
+                <p>📁 Перетащите файлы сюда или нажмите для выбора</p>
+                <p style="color: #666; font-size: 0.9rem;">Поддерживаемые форматы: EPUB, FB2, PDF, TXT</p>
+                </p>
+                <button class="btn btn-primary" style="margin-top: 1rem;" onclick="document.getElementById('fileInput').click()">
+                    📂 Выбрать файлы
+                </button>
+            </div>
+            <input type="file" id="fileInput" accept=".epub,.fb2,.pdf,.txt" multiple style="display: none;">
+            <div style="display: flex; gap: 1rem; margin-top: 1rem; justify-content: flex-end;">
+                <button class="btn btn-primary" onclick="closeModal('uploadModal')">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="folderModal">
+        <div class="modal-content">
+            <h2 id="folderModalTitle">📁 Создать папку</h2>
+            <div class="form-group">
+                <label class="form-label">Название папки</label>
+                <input type="text" class="form-input" id="folderName" placeholder="Введите название">
+            </div>
+            <button class="btn btn-primary" onclick="saveFolder()">Сохранить</button>
+            <button class="btn" onclick="closeModal('folderModal')">Отмена</button>
+        </div>
+    </div>
+
+    <div class="modal" id="editBookModal">
+        <div class="modal-content">
+            <h2>✏️ Редактировать книгу</h2>
+            <div class="form-group">
+                <label class="form-label">Название</label>
+                <input type="text" class="form-input" id="editTitle">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Автор</label>
+                <input type="text" class="form-input" id="editAuthor">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Фандом</label>
+                <select class="form-input" id="editFandom"></select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Или введите свой фандом</label>
+                <input type="text" class="form-input" id="editFandomCustom" placeholder="Введите название фандома">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Пейринг</label>
+                <input type="text" class="form-input" id="editPairing">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Теги (через запятую)</label>
+                <input type="text" class="form-input" id="editTags">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Размер</label>
+                <select class="form-input" id="editSize">
+                    <option value="mini">Мини (до 20 стр.)</option>
+                    <option value="midi">Миди (20-70 стр.)</option>
+                    <option value="maxi">Макси (более 70 стр.)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Количество страниц</label>
+                <input type="number" class="form-input" id="editPages" oninput="autoUpdateSize()">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Статус</label>
+                <select class="form-input" id="editStatus">
+                    <option value="unread">Не прочитано</option>
+                    <option value="reading">Читаю</option>
+                    <option value="read">Прочитано</option>
+                    <option value="want">Хочу прочитать</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;">
+                <button class="btn btn-primary" onclick="saveBookEdit()">💾 Сохранить</button>
+                <button class="btn" onclick="reloadBookContent(editingBookId)" style="background: #FF9800; color: white; border: none; padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer; font-size: 0.9rem; transition: all 0.3s;">🔄 Перезагрузить содержимое</button>
+                <button class="btn" onclick="closeModal('editBookModal')" style="background: #f44336; color: white; border: none; padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer; font-size: 0.9rem;">❌ Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="addTagModal">
+        <div class="modal-content">
+            <h2>🏷️ Добавить тег</h2>
+            <div class="form-group">
+                <label class="form-label">Название тега</label>
+                <input type="text" class="form-input" id="newTagName" placeholder="Введите название тега">
+            </div>
+            <button class="btn btn-primary" onclick="addCustomTag()">Добавить</button>
+            <button class="btn" onclick="closeModal('addTagModal')">Отмена</button>
+        </div>
+    </div>
+
+    <div class="reader-container" id="readerContainer">
+        <div class="reader-header">
+            <div id="readerTitle">Название книги</div>
+            <div>
+                <button class="btn" onclick="closeReader()">✕</button>
+            </div>
+        </div>
+        <div class="reader-content">
+            <div class="reader-text" id="readerContent"></div>
+        </div>
+        <div class="reader-controls">
+            <button class="btn btn-primary" onclick="prevPage()">← Назад</button>
+            <span id="pageIndicator">Страница 1</span>
+            <button class="btn btn-primary" onclick="nextPage()">Вперед →</button>
+            <button class="btn btn-primary" onclick="changeFontSize(1)">A+</button>
+            <button class="btn btn-primary" onclick="changeFontSize(-1)">A-</button>
+        </div>
+    </div>
+
+    <script>
+        // ============ НОВЫЙ КОД: КЛАСС ДЛЯ РАБОТЫ С INDEXEDDB ============
+        class LibraryDB {
+            constructor() {
+                this.dbName = 'LibraryDB';
+                this.dbVersion = 1;
+                this.db = null;
+            }
+
+            async init() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.dbName, this.dbVersion);
+                    
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => {
+                        this.db = request.result;
+                        resolve();
+                    };
+                    
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        
+                        if (!db.objectStoreNames.contains('books')) {
+                            const store = db.createObjectStore('books', { keyPath: 'id' });
+                            store.createIndex('title', 'title', { unique: false });
+                            store.createIndex('author', 'author', { unique: false });
+                            store.createIndex('fandom', 'fandom', { unique: false });
+                            store.createIndex('status', 'status', { unique: false });
+                            store.createIndex('folder', 'folder', { unique: false });
+                            store.createIndex('dateAdded', 'dateAdded', { unique: false });
+                        }
+                        
+                        if (!db.objectStoreNames.contains('contents')) {
+                            const contentStore = db.createObjectStore('contents', { keyPath: 'id' });
+                            contentStore.createIndex('bookId', 'bookId', { unique: true });
+                        }
+                        
+                        if (!db.objectStoreNames.contains('folders')) {
+                            db.createObjectStore('folders', { keyPath: 'id' });
+                        }
+                        
+                        if (!db.objectStoreNames.contains('settings')) {
+                            db.createObjectStore('settings', { keyPath: 'key' });
+                        }
+                    };
+                });
+            }
+
+            async saveBooks(books) {
+                const tx = this.db.transaction(['books'], 'readwrite');
+                const store = tx.objectStore('books');
+                for (const book of books) {
+                    store.put(book);
+                }
+                await tx.done;
+            }
+
+            async getAllBooks() {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['books'], 'readonly');
+                    const store = tx.objectStore('books');
+                    const request = store.getAll();
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async deleteBook(id) {
+                const tx = this.db.transaction(['books', 'contents'], 'readwrite');
+                tx.objectStore('books').delete(id);
+                tx.objectStore('contents').delete(id);
+                await tx.done;
+            }
+
+            async clearBooks() {
+                const tx = this.db.transaction(['books', 'contents'], 'readwrite');
+                tx.objectStore('books').clear();
+                tx.objectStore('contents').clear();
+                await tx.done;
+            }
+
+            async saveContent(bookId, content) {
+                const tx = this.db.transaction(['contents'], 'readwrite');
+                const store = tx.objectStore('contents');
+                store.put({ id: 'content_' + bookId, bookId: bookId, content: content });
+                await tx.done;
+            }
+
+            async getContent(bookId) {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['contents'], 'readonly');
+                    const store = tx.objectStore('contents');
+                    const request = store.get('content_' + bookId);
+                    request.onsuccess = () => {
+                        if (request.result) {
+                            resolve(request.result.content);
+                        } else {
+                            resolve(null);
+                        }
+                    };
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async getAllContents() {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['contents'], 'readonly');
+                    const store = tx.objectStore('contents');
+                    const request = store.getAll();
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async saveFolders(folders) {
+                const tx = this.db.transaction(['folders'], 'readwrite');
+                const store = tx.objectStore('folders');
+                for (const folder of folders) {
+                    store.put(folder);
+                }
+                await tx.done;
+            }
+
+            async getAllFolders() {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['folders'], 'readonly');
+                    const store = tx.objectStore('folders');
+                    const request = store.getAll();
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async deleteFolder(id) {
+                const tx = this.db.transaction(['folders'], 'readwrite');
+                tx.objectStore('folders').delete(id);
+                await tx.done;
+            }
+
+            async saveSetting(key, value) {
+                const tx = this.db.transaction(['settings'], 'readwrite');
+                const store = tx.objectStore('settings');
+                store.put({ key: key, value: value });
+                await tx.done;
+            }
+
+            async getSetting(key) {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['settings'], 'readonly');
+                    const store = tx.objectStore('settings');
+                    const request = store.get(key);
+                    request.onsuccess = () => {
+                        if (request.result) {
+                            resolve(request.result.value);
+                        } else {
+                            resolve(null);
+                        }
+                    };
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async getAllSettings() {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['settings'], 'readonly');
+                    const store = tx.objectStore('settings');
+                    const request = store.getAll();
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async exportAllData() {
+                const books = await this.getAllBooks();
+                const contents = await this.getAllContents();
+                const folders = await this.getAllFolders();
+                const settings = await this.getAllSettings();
+                return { books, contents, folders, settings };
+            }
+
+            async importAllData(data) {
+                await this.clearBooks();
+                if (data.books && data.books.length > 0) {
+                    await this.saveBooks(data.books);
+                }
+                if (data.contents && data.contents.length > 0) {
+                    for (const content of data.contents) {
+                        await this.saveContent(content.bookId, content.content);
+                    }
+                }
+                if (data.folders && data.folders.length > 0) {
+                    await this.saveFolders(data.folders);
+                }
+            }
+        }
+        // ============ КОНЕЦ НОВОГО КОДА ============
+
+        // ============ ИЗМЕНЕННЫЕ ПЕРЕМЕННЫЕ ============
+        let db = new LibraryDB();
+        let books = [];
+        let folders = [];
+        let customTags = [];
+        let customFandoms = [];
+        let currentFolder = 'all';
+        let currentTag = 'all';
+        let currentBook = null;
+        let currentPage = 1;
+        let fontSize = 1.1;
+        let editingBookId = null;
+        let editingFolderId = null;
+        let bookContents = {};
+
+        const defaultTags = [
+            'all', 'angst', 'fluff', 'hurt_comfort', 'doctors', 'mafia', 
+            'pwp', 'omegaverse', 'non_modern', 'slow_burn', 
+            'enemies_to_lovers', 'school_au'
+        ];
+
+        const defaultFandoms = [
+            'original', 'harry_potter', 'BTS', 'naruto', 'Supernatural', 
+            'fairy_tail', 'russian_rap', 'improvisation'
+        ];
+
+        // ============ ИЗМЕНЕННАЯ ИНИЦИАЛИЗАЦИЯ ============
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                await db.init();
+                await loadFromStorage();
+                setupDropZone();
+                setupFileInput();
+                renderBooks();
+                renderFolders();
+                renderTags();
+                updateStats();
+                updateFandomSelects();
+                showNotification('✅ Библиотека загружена!');
+            } catch (error) {
+                console.error('Ошибка инициализации:', error);
+                showNotification('❌ Ошибка загрузки библиотеки');
+            }
+        });
+
+        // ============ ИЗМЕНЕННАЯ ФУНКЦИЯ ЗАГРУЗКИ ============
+        async function loadFromStorage() {
+            try {
+                books = await db.getAllBooks();
+                folders = await db.getAllFolders();
+                
+                const savedTags = await db.getSetting('custom_tags');
+                if (savedTags) {
+                    customTags = savedTags;
+                } else {
+                    customTags = [...defaultTags];
+                }
+                
+                const savedFandoms = await db.getSetting('custom_fandoms');
+                if (savedFandoms) {
+                    customFandoms = savedFandoms;
+                } else {
+                    customFandoms = [...defaultFandoms];
+                }
+                
+                const allContents = await db.getAllContents();
+                bookContents = {};
+                for (const item of allContents) {
+                    bookContents[item.bookId] = item.content;
+                }
+            } catch (e) {
+                console.error('Ошибка загрузки данных:', e);
+                books = [];
+                folders = [];
+                customTags = [...defaultTags];
+                customFandoms = [...defaultFandoms];
+                bookContents = {};
+            }
+        }
+
+        // ============ ИЗМЕНЕННАЯ ФУНКЦИЯ СОХРАНЕНИЯ ============
+        async function saveToStorage() {
+            try {
+                await db.saveBooks(books);
+                await db.saveFolders(folders);
+                await db.saveSetting('custom_tags', customTags);
+                await db.saveSetting('custom_fandoms', customFandoms);
+                for (const [bookId, content] of Object.entries(bookContents)) {
+                    await db.saveContent(bookId, content);
+                }
+            } catch (e) {
+                console.error('Ошибка сохранения данных:', e);
+                showNotification('❌ Ошибка сохранения данных');
+            }
+        }
+
+        // ============ ИЗМЕНЕННАЯ ФУНКЦИЯ ЗАГРУЗКИ ФАЙЛОВ ============
+        async function handleFiles(files) {
+            const fileArray = Array.from(files);
+            
+            if (fileArray.length === 0) {
+                showNotification('Файлы не выбраны');
+                return;
+            }
+            
+            showProgress(0, fileArray.length);
+            showNotification(`Загрузка ${fileArray.length} файлов...`);
+            
+            let loadedCount = 0;
+            let errorCount = 0;
+            const errors = [];
+            const newBooks = [];
+            
+            for (let i = 0; i < fileArray.length; i++) {
+                const file = fileArray[i];
+                
+                if (!file || !file.name) {
+                    errorCount++;
+                    errors.push('Неизвестный файл');
+                    showProgress(i + 1, fileArray.length);
+                    continue;
+                }
+                
+                const extension = file.name.split('.').pop().toLowerCase();
+                
+                if (!['epub', 'fb2', 'pdf', 'txt'].includes(extension)) {
+                    errorCount++;
+                    errors.push(`${file.name} - неподдерживаемый формат (${extension})`);
+                    showProgress(i + 1, fileArray.length);
+                    continue;
+                }
+                
+                try {
+                    let content = '';
+                    let pages = 0;
+                    let title = file.name.replace(new RegExp(`\\.${extension}$`), '');
+                    let author = 'Неизвестный автор';
+                    
+                    switch(extension) {
+                        case 'txt':
+                            content = await file.text();
+                            pages = Math.ceil(content.length / 2000);
+                            break;
+                        case 'fb2':
+                            const fb2Result = await parseFB2(file);
+                            content = fb2Result.content;
+                            pages = fb2Result.pages;
+                            title = fb2Result.title || title;
+                            author = fb2Result.author || author;
+                            break;
+                        case 'epub':
+                            try {
+                                const epubResult = await parseEPUB(file);
+                                content = epubResult.content;
+                                pages = epubResult.pages;
+                                title = epubResult.title || title;
+                                author = epubResult.author || author;
+                            } catch (epubError) {
+                                console.warn('Ошибка парсинга EPUB, пробуем как ZIP:', epubError);
+                                const zip = new JSZip();
+                                const zipContent = await zip.loadAsync(file);
+                                let extractedText = '';
+                                for (const [path, entry] of Object.entries(zipContent.files)) {
+                                    if (!entry.dir && (path.endsWith('.html') || path.endsWith('.xhtml') || path.endsWith('.htm'))) {
+                                        try {
+                                            const html = await entry.async('string');
+                                            const tempDiv = document.createElement('div');
+                                            tempDiv.innerHTML = html;
+                                            extractedText += tempDiv.textContent + '\n\n';
+                                        } catch (e) {}
+                                    }
+                                }
+                                content = extractedText || 'Не удалось извлечь текст из EPUB';
+                                pages = Math.ceil(content.length / 2000);
+                            }
+                            break;
+                        case 'pdf':
+                            try {
+                                const pdfResult = await parsePDF(file);
+                                content = pdfResult.content;
+                                pages = pdfResult.pages;
+                                title = pdfResult.title || title;
+                                author = pdfResult.author || author;
+                            } catch (pdfError) {
+                                console.warn('Ошибка парсинга PDF:', pdfError);
+                                content = `Не удалось прочитать PDF-файл "${file.name}". Возможно, файл защищен паролем или поврежден.`;
+                                pages = 1;
+                            }
+                            break;
+                    }
+                    
+                    if (!content || content.trim().length < 10) {
+                        throw new Error('Не удалось извлечь текст (слишком мало содержимого)');
+                    }
+                    
+                    const size = autoDetermineSize(pages || 1);
+                    const book = {
+                        id: 'book_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                        title: title || 'Без названия',
+                        author: author || 'Неизвестный автор',
+                        fandom: 'original',
+                        pairing: '',
+                        tags: [],
+                        size: size,
+                        pages: pages || 1,
+                        status: 'unread',
+                        dateAdded: new Date().toISOString(),
+                        dateRead: null,
+                        folder: currentFolder === 'all' ? 'all' : currentFolder,
+                        fileData: file.name,
+                        fileType: extension
+                    };
+                    
+                    await db.saveContent(book.id, content);
+                    bookContents[book.id] = content;
+                    
+                    newBooks.push(book);
+                    loadedCount++;
+                    
+                } catch (error) {
+                    console.error(`Ошибка загрузки ${file.name}:`, error);
+                    errorCount++;
+                    errors.push(`${file.name} - ${error.message || 'неизвестная ошибка'}`);
+                }
+                
+                showProgress(i + 1, fileArray.length);
+            }
+            
+            if (newBooks.length > 0) {
+                books.push(...newBooks);
+                await db.saveBooks(books);
+                renderBooks();
+                renderFolders();
+                updateStats();
+                showNotification(`✅ Загружено: ${loadedCount} книг`);
+            }
+            
+            closeModal('uploadModal');
+            hideProgress();
+            
+            if (errors.length > 0) {
+                setTimeout(() => {
+                    alert(`❌ Ошибки при загрузке (${errors.length} шт.):\n\n${errors.slice(0, 10).join('\n')}`);
+                }, 500);
+            }
+        }
+
+        // ============ НОВАЯ ФУНКЦИЯ: ОЧИСТКА ВСЕХ КНИГ ============
+        async function clearAllBooks() {
+            if (confirm('⚠️ ВНИМАНИЕ! Это действие удалит ВСЕ книги без возможности восстановления!\n\nПродолжить?')) {
+                if (confirm('Вы уверены? Удалить все книги и содержимое?')) {
+                    await db.clearBooks();
+                    books = [];
+                    bookContents = {};
+                    renderBooks();
+                    renderFolders();
+                    updateStats();
+                    showNotification('✅ Все книги удалены!');
+                }
+            }
+        }
+
+        // ============ ОСТАЛЬНЫЕ ФУНКЦИИ (БЕЗ ИЗМЕНЕНИЙ) ============
+        function setupFileInput() {
+            const fileInput = document.getElementById('fileInput');
+            fileInput.removeEventListener('change', handleFileSelect);
+            fileInput.addEventListener('change', handleFileSelect);
+        }
+
+        function handleFileSelect(e) {
+            if (e.target.files && e.target.files.length > 0) {
+                handleFiles(e.target.files);
+                e.target.value = '';
+            }
+        }
+
+        function setupDropZone() {
+            const dropZone = document.getElementById('dropZone');
+            
+            dropZone.addEventListener('click', function() {
+                document.getElementById('fileInput').click();
+            });
+            
+            dropZone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+            
+            dropZone.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+            });
+            
+            dropZone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    handleFiles(e.dataTransfer.files);
+                }
+            });
+        }
+
+        function showProgress(current, total) {
+            const progressDiv = document.getElementById('uploadProgress');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            const progressPercent = document.getElementById('progressPercent');
+            
+            progressDiv.style.display = 'block';
+            const percent = Math.round((current / total) * 100);
+            progressFill.style.width = percent + '%';
+            progressText.textContent = `${current} из ${total}`;
+            progressPercent.textContent = percent + '%';
+        }
+
+        function hideProgress() {
+            document.getElementById('uploadProgress').style.display = 'none';
+        }
+
+        function autoDetermineSize(pages) {
+            if (pages < 20) return 'mini';
+            else if (pages >= 20 && pages <= 70) return 'midi';
+            else return 'maxi';
+        }
+
+        function autoUpdateSize() {
+            const pagesInput = document.getElementById('editPages');
+            const sizeSelect = document.getElementById('editSize');
+            const pages = parseInt(pagesInput.value);
+            if (pages) {
+                sizeSelect.value = autoDetermineSize(pages);
+            }
+        }
+
+        async function parseFB2(file) {
+            const text = await file.text();
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(text, "text/xml");
+            
+            const bookTitle = xmlDoc.querySelector('book-title');
+            const title = bookTitle ? bookTitle.textContent : '';
+            
+            const firstName = xmlDoc.querySelector('first-name');
+            const lastName = xmlDoc.querySelector('last-name');
+            let author = 'Неизвестный автор';
+            if (firstName || lastName) {
+                author = [firstName?.textContent, lastName?.textContent].filter(Boolean).join(' ');
+            }
+            
+            const sections = xmlDoc.querySelectorAll('section');
+            let fullText = '';
+            
+            sections.forEach(section => {
+                const paragraphs = section.querySelectorAll('p');
+                paragraphs.forEach(p => {
+                    fullText += p.textContent + '\n\n';
+                });
+            });
+            
+            if (!fullText) {
+                const body = xmlDoc.querySelector('body');
+                if (body) fullText = body.textContent;
+            }
+            
+            const pages = Math.ceil(fullText.length / 2000);
+            return { content: fullText, pages, title, author };
+        }
+
+        async function parseEPUB(file) {
+            try {
+                const zip = new JSZip();
+                const zipContent = await zip.loadAsync(file);
+                
+                const contentFiles = [];
+                const metadataFiles = [];
+                
+                zipContent.forEach((relativePath, zipEntry) => {
+                    if (zipEntry.dir) return;
+                    const path = relativePath.toLowerCase();
+                    if (path.endsWith('.html') || path.endsWith('.xhtml') || path.endsWith('.htm')) {
+                        contentFiles.push(relativePath);
+                    }
+                    if (path.endsWith('.opf') || path.endsWith('.ncx')) {
+                        metadataFiles.push(relativePath);
+                    }
+                });
+                
+                let fullText = '';
+                let title = '';
+                let author = '';
+                
+                for (const metaFile of metadataFiles) {
+                    try {
+                        const metaContent = await zipContent.file(metaFile).async('string');
+                        const parser = new DOMParser();
+                        const xmlDoc = parser.parseFromString(metaContent, 'text/xml');
+                        
+                        const titleElement = xmlDoc.querySelector('title');
+                        if (titleElement && !title) title = titleElement.textContent.trim();
+                        
+                        const creatorElement = xmlDoc.querySelector('creator');
+                        if (creatorElement && !author) author = creatorElement.textContent.trim();
+                    } catch (e) {
+                        console.warn('Ошибка чтения метаданных:', e);
+                    }
+                }
+                
+                for (const contentFile of contentFiles) {
+                    try {
+                        const htmlContent = await zipContent.file(contentFile).async('string');
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = htmlContent;
+                        tempDiv.querySelectorAll('script, style').forEach(el => el.remove());
+                        const text = tempDiv.textContent || tempDiv.innerText || '';
+                        fullText += text + '\n\n';
+                    } catch (e) {
+                        console.warn(`Ошибка чтения файла ${contentFile}:`, e);
+                    }
+                }
+                
+                if (!fullText.trim()) {
+                    fullText = `Не удалось извлечь текст из файла "${file.name}".`;
+                }
+                
+                fullText = fullText.replace(/\s+/g, ' ').trim();
+                const pages = Math.ceil(fullText.length / 2000);
+                
+                return { 
+                    content: fullText, 
+                    pages: pages || 100,
+                    title: title || '',
+                    author: author || 'Неизвестный автор'
+                };
+            } catch (error) {
+                console.error('Ошибка парсинга EPUB:', error);
+                throw error;
+            }
+        }
+
+        async function parsePDF(file) {
+            try {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+                
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                
+                let fullText = '';
+                
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    const pageText = textContent.items.map(item => item.str).join(' ');
+                    fullText += pageText + '\n\n';
+                }
+                
+                const metadata = await pdf.getMetadata();
+                const title = metadata.info?.Title || '';
+                const author = metadata.info?.Author || '';
+                
+                return {
+                    content: fullText,
+                    pages: pdf.numPages,
+                    title: title,
+                    author: author
+                };
+            } catch (error) {
+                console.error('Ошибка парсинга PDF:', error);
+                throw error;
+            }
+        }
+
+        function renderBooks() {
+            const grid = document.getElementById('booksGrid');
+            grid.innerHTML = '';
+            
+            let filteredBooks = filterBooksData();
+            
+            if (filteredBooks.length === 0) {
+                grid.innerHTML = '<div style="text-align: center; padding: 2rem; color: #666;">Нет книг для отображения</div>';
+                return;
+            }
+            
+            filteredBooks.forEach(book => {
+                const card = document.createElement('div');
+                card.className = 'book-card';
+                
+                const sizeText = book.size === 'mini' ? 'Мини' : 
+                                book.size === 'midi' ? 'Миди' : 'Макси';
+                
+                card.innerHTML = `
+                    ${book.status === 'read' ? '<div class="status-badge status-read">Прочитано</div>' : ''}
+                    ${book.status === 'want' ? '<div class="status-badge status-want">Хочу прочитать</div>' : ''}
+                    ${book.status === 'reading' ? '<div class="status-badge status-reading">Читаю</div>' : ''}
+                    <div class="book-actions">
+                        <button class="action-btn" onclick="event.stopPropagation(); quickStatusChange('${book.id}', 'read')" title="Отметить прочитанным">✓</button>
+                        <button class="action-btn" onclick="event.stopPropagation(); quickStatusChange('${book.id}', 'want')" title="Хочу прочитать">⭐</button>
+                        <button class="action-btn" onclick="event.stopPropagation(); editBook('${book.id}')" title="Редактировать">✏️</button>
+                        <button class="action-btn" onclick="event.stopPropagation(); deleteBook('${book.id}')" title="Удалить">🗑️</button>
+                    </div>
+                    <div class="book-cover">📖</div>
+                    <div class="book-info">
+                        <div class="book-title">${book.title}</div>
+                        <div class="book-meta">
+                            <div>${book.author}</div>
+                            <div>${sizeText}, ${book.pages} стр.</div>
+                            ${book.pairing ? `<div>${book.pairing}</div>` : ''}
+                            ${book.fandom !== 'original' ? `<div>${book.fandom}</div>` : ''}
+                        </div>
+                        <div class="book-stats">
+                            <span>${formatDate(book.dateAdded)}</span>
+                        </div>
+                        ${book.tags && book.tags.length > 0 ? `
+                            <div style="margin-top: 0.5rem;">
+                                ${book.tags.slice(0, 3).map(tag => `<span class="tag" style="font-size: 0.7rem;">${tag}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+                
+                card.addEventListener('click', function(e) {
+                    if (!e.target.closest('.action-btn')) {
+                        openReader(book.id);
+                    }
+                });
+                
+                grid.appendChild(card);
+            });
+        }
+
+        function filterBooksData() {
+            const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
+            const sizeFilter = document.getElementById('sizeFilter')?.value || '';
+            const fandomFilter = document.getElementById('fandomFilter')?.value || '';
+            const statusFilter = document.getElementById('statusFilter')?.value || '';
+            const sortFilter = document.getElementById('sortFilter')?.value || 'date_added';
+            
+            let filtered = books.filter(book => {
+                const matchesSearch = !searchTerm || 
+                    book.title.toLowerCase().includes(searchTerm) ||
+                    book.author.toLowerCase().includes(searchTerm) ||
+                    (book.tags && book.tags.some(tag => tag.toLowerCase().includes(searchTerm)));
+                
+                const matchesSize = !sizeFilter || book.size === sizeFilter;
+                const matchesFandom = !fandomFilter || book.fandom === fandomFilter;
+                const matchesStatus = !statusFilter || book.status === statusFilter;
+                const matchesFolder = currentFolder === 'all' || book.folder === currentFolder || (currentFolder === 'all' && !book.folder);
+                const matchesTag = currentTag === 'all' || (book.tags && book.tags.includes(currentTag));
+                
+                return matchesSearch && matchesSize && matchesFandom && matchesStatus && matchesFolder && matchesTag;
+            });
+            
+            switch(sortFilter) {
+                case 'alphabet':
+                    filtered.sort((a, b) => a.title.localeCompare(b.title));
+                    break;
+                case 'date_read':
+                    filtered.sort((a, b) => {
+                        if (!a.dateRead) return 1;
+                        if (!b.dateRead) return -1;
+                        return new Date(b.dateRead) - new Date(a.dateRead);
+                    });
+                    break;
+                case 'pages':
+                    filtered.sort((a, b) => b.pages - a.pages);
+                    break;
+                default:
+                    filtered.sort((a, b) => new Date(b.dateAdded) - new Date(a.dateAdded));
+            }
+            
+            return filtered;
+        }
+
+        function filterBooks() {
+            renderBooks();
+        }
+
+        function renderTags() {
+            const container = document.getElementById('tagsContainer');
+            container.innerHTML = '';
+            
+            const allTag = document.createElement('span');
+            allTag.className = 'tag' + (currentTag === 'all' ? ' active' : '');
+            allTag.textContent = 'Все';
+            allTag.onclick = () => filterByTag('all');
+            container.appendChild(allTag);
+            
+            customTags.forEach(tag => {
+                if (tag === 'all') return;
+                const tagElement = document.createElement('span');
+                tagElement.className = 'tag' + (currentTag === tag ? ' active' : '');
+                tagElement.textContent = tag;
+                tagElement.onclick = () => filterByTag(tag);
+                container.appendChild(tagElement);
+            });
+            
+            const addTag = document.createElement('span');
+            addTag.className = 'tag tag-add';
+            addTag.textContent = '+ Добавить тег';
+            addTag.onclick = showAddTagModal;
+            container.appendChild(addTag);
+        }
+
+        function filterByTag(tag) {
+            currentTag = tag;
+            renderTags();
+            renderBooks();
+        }
+
+        function showAddTagModal() {
+            document.getElementById('newTagName').value = '';
+            showModal('addTagModal');
+        }
+
+        function addCustomTag() {
+            const tagName = document.getElementById('newTagName').value.trim().toLowerCase();
+            if (tagName && !customTags.includes(tagName)) {
+                customTags.push(tagName);
+                saveToStorage();
+                renderTags();
+                closeModal('addTagModal');
+                showNotification('Тег добавлен!');
+            }
+        }
+
+        function updateFandomSelects() {
+            const fandomFilter = document.getElementById('fandomFilter');
+            const editFandom = document.getElementById('editFandom');
+            
+            if (fandomFilter) {
+                fandomFilter.innerHTML = '<option value="">Все фандомы</option>';
+                customFandoms.forEach(fandom => {
+                    const option = document.createElement('option');
+                    option.value = fandom;
+                    option.textContent = getFandomDisplayName(fandom);
+                    fandomFilter.appendChild(option);
+                });
+            }
+            
+            if (editFandom) {
+                editFandom.innerHTML = '';
+                customFandoms.forEach(fandom => {
+                    const option = document.createElement('option');
+                    option.value = fandom;
+                    option.textContent = getFandomDisplayName(fandom);
+                    editFandom.appendChild(option);
+                });
+            }
+        }
+
+        function getFandomDisplayName(fandom) {
+            const names = {
+                'original': 'Ориджинал',
+                'harry_potter': 'Гарри Поттер',
+                'BTS': 'БТС',
+                'naruto': 'Наруто',
+                'Supernatural': 'Сверхъестественное',
+                'fairy_tail': 'Хвост Феи',
+                'russian_rap': 'Рурэп',
+                'improvisation': 'Импровизация'
+            };
+            return names[fandom] || fandom;
+        }
+
+        function renderFolders() {
+            const container = document.getElementById('foldersContainer');
+            container.innerHTML = '';
+            
+            const allFolder = document.createElement('div');
+            allFolder.className = 'folder-item' + (currentFolder === 'all' ? ' active' : '');
+            allFolder.innerHTML = `<span>📚 Все книги</span><span>${books.length}</span>`;
+            allFolder.onclick = () => filterByFolder('all');
+            container.appendChild(allFolder);
+            
+            folders.forEach(folder => {
+                const folderItem = document.createElement('div');
+                folderItem.className = 'folder-item' + (currentFolder === folder.id ? ' active' : '');
+                const count = books.filter(b => b.folder === folder.id).length;
+                
+                folderItem.innerHTML = `
+                    <span>📁 ${folder.name}</span>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span>${count}</span>
+                        <div class="folder-actions">
+                            <button class="folder-action-btn" onclick="event.stopPropagation(); editFolder('${folder.id}')" title="Редактировать">✏️</button>
+                            <button class="folder-action-btn" onclick="event.stopPropagation(); deleteFolder('${folder.id}')" title="Удалить">🗑️</button>
+                        </div>
+                    </div>
+                `;
+                
+                folderItem.onclick = () => filterByFolder(folder.id);
+                container.appendChild(folderItem);
+            });
+            
+            const addFolder = document.createElement('div');
+            addFolder.className = 'folder-item';
+            addFolder.style.border = '2px dashed var(--secondary)';
+            addFolder.style.marginTop = '0.5rem';
+            addFolder.innerHTML = '<span>+ Добавить папку</span>';
+            addFolder.onclick = showCreateFolderModal;
+            container.appendChild(addFolder);
+        }
+
+        function filterByFolder(folder) {
+            currentFolder = folder;
+            renderFolders();
+            renderBooks();
+        }
+
+        function showCreateFolderModal() {
+            editingFolderId = null;
+            document.getElementById('folderModalTitle').textContent = '📁 Создать папку';
+            document.getElementById('folderName').value = '';
+            showModal('folderModal');
+        }
+
+        function editFolder(folderId) {
+            const folder = folders.find(f => f.id === folderId);
+            if (folder) {
+                editingFolderId = folderId;
+                document.getElementById('folderModalTitle').textContent = '✏️ Редактировать папку';
+                document.getElementById('folderName').value = folder.name;
+                showModal('folderModal');
+            }
+        }
+
+        async function saveFolder() {
+            const name = document.getElementById('folderName').value.trim();
+            if (name) {
+                if (editingFolderId) {
+                    const folder = folders.find(f => f.id === editingFolderId);
+                    if (folder) folder.name = name;
+                } else {
+                    folders.push({
+                        id: 'folder_' + Date.now(),
+                        name: name
+                    });
+                }
+                
+                await saveToStorage();
+                renderFolders();
+                closeModal('folderModal');
+                document.getElementById('folderName').value = '';
+                showNotification('Папка сохранена!');
+            }
+        }
+
+        async function deleteFolder(folderId) {
+            if (confirm('Удалить папку? Книги в ней не будут удалены.')) {
+                folders = folders.filter(f => f.id !== folderId);
+                books.forEach(book => {
+                    if (book.folder === folderId) book.folder = 'all';
+                });
+                if (currentFolder === folderId) currentFolder = 'all';
+                
+                await saveToStorage();
+                renderFolders();
+                renderBooks();
+                showNotification('Папка удалена');
+            }
+        }
+
+        async function deleteBook(bookId) {
+            if (confirm('Удалить книгу?')) {
+                const bookIndex = books.findIndex(b => b.id === bookId);
+                if (bookIndex !== -1) {
+                    books.splice(bookIndex, 1);
+                }
+                delete bookContents[bookId];
+                await db.deleteBook(bookId);
+                await saveToStorage();
+                renderBooks();
+                renderFolders();
+                updateStats();
+                showNotification('Книга удалена');
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('totalBooks').textContent = books.length;
+            document.getElementById('readBooks').textContent = books.filter(b => b.status === 'read').length;
+            document.getElementById('wantBooks').textContent = books.filter(b => b.status === 'want').length;
+            document.getElementById('totalPages').textContent = books.reduce((sum, b) => sum + b.pages, 0);
+        }
+
+        async function quickStatusChange(bookId, status) {
+            const book = books.find(b => b.id === bookId);
+            if (book) {
+                book.status = status;
+                if (status === 'read') book.dateRead = new Date().toISOString();
+                await saveToStorage();
+                renderBooks();
+                updateStats();
+                showNotification('Статус обновлен!');
+            }
+        }
+
+        function editBook(bookId) {
+            const book = books.find(b => b.id === bookId);
+            if (book) {
+                editingBookId = bookId;
+                document.getElementById('editTitle').value = book.title;
+                document.getElementById('editAuthor').value = book.author;
+                document.getElementById('editFandom').value = book.fandom || 'original';
+                document.getElementById('editFandomCustom').value = '';
+                document.getElementById('editPairing').value = book.pairing || '';
+                document.getElementById('editTags').value = (book.tags || []).join(', ');
+                document.getElementById('editSize').value = book.size || 'midi';
+                document.getElementById('editPages').value = book.pages || 0;
+                document.getElementById('editStatus').value = book.status || 'unread';
+                showModal('editBookModal');
+            }
+        }
+
+        async function reloadBookContent(bookId) {
+            const book = books.find(b => b.id === bookId);
+            if (!book) {
+                showNotification('Книга не найдена');
+                return;
+            }
+            
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.epub,.fb2,.pdf,.txt';
+            input.style.display = 'none';
+            
+            input.onchange = async function(e) {
+                if (e.target.files && e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    const extension = file.name.split('.').pop().toLowerCase();
+                    
+                    showProgress(0, 1);
+                    showNotification(`Перезагрузка ${file.name}...`);
+                    
+                    try {
+                        let content = '';
+                        let pages = 0;
+                        
+                        switch(extension) {
+                            case 'txt':
+                                content = await file.text();
+                                pages = Math.ceil(content.length / 2000);
+                                break;
+                            case 'fb2':
+                                const fb2Result = await parseFB2(file);
+                                content = fb2Result.content;
+                                pages = fb2Result.pages;
+                                if (fb2Result.title) book.title = fb2Result.title;
+                                if (fb2Result.author) book.author = fb2Result.author;
+                                break;
+                            case 'epub':
+                                const epubResult = await parseEPUB(file);
+                                content = epubResult.content;
+                                pages = epubResult.pages;
+                                if (epubResult.title) book.title = epubResult.title;
+                                if (epubResult.author) book.author = epubResult.author;
+                                break;
+                            case 'pdf':
+                                const pdfResult = await parsePDF(file);
+                                content = pdfResult.content;
+                                pages = pdfResult.pages;
+                                if (pdfResult.title) book.title = pdfResult.title;
+                                if (pdfResult.author) book.author = pdfResult.author;
+                                break;
+                        }
+                        
+                        if (!content || content.trim().length < 10) {
+                            throw new Error('Не удалось извлечь текст');
+                        }
+                        
+                        bookContents[book.id] = content;
+                        book.pages = pages || Math.ceil(content.length / 2000);
+                        book.size = autoDetermineSize(book.pages);
+                        book.fileData = file.name;
+                        book.fileType = extension;
+                        
+                        await saveToStorage();
+                        renderBooks();
+                        renderFolders();
+                        updateStats();
+                        
+                        hideProgress();
+                        closeModal('editBookModal');
+                        showNotification('✅ Содержимое перезагружено!');
+                        
+                        if (currentBook && currentBook.id === book.id) {
+                            updateReader();
+                        }
+                        
+                    } catch (error) {
+                        console.error('Ошибка перезагрузки:', error);
+                        hideProgress();
+                        showNotification('❌ Ошибка перезагрузки: ' + error.message);
+                    }
+                }
+                document.body.removeChild(input);
+            };
+            
+            document.body.appendChild(input);
+            input.click();
+        }
+
+        async function saveBookEdit() {
+            const book = books.find(b => b.id === editingBookId);
+            if (book) {
+                book.title = document.getElementById('editTitle').value.trim() || 'Без названия';
+                book.author = document.getElementById('editAuthor').value.trim() || 'Неизвестный автор';
+                
+                const customFandom = document.getElementById('editFandomCustom').value.trim();
+                const selectedFandom = document.getElementById('editFandom').value;
+                
+                if (customFandom) {
+                    book.fandom = customFandom;
+                    if (!customFandoms.includes(customFandom)) {
+                        customFandoms.push(customFandom);
+                        updateFandomSelects();
+                    }
+                } else {
+                    book.fandom = selectedFandom;
+                }
+                
+                book.pairing = document.getElementById('editPairing').value.trim();
+                
+                const tagsInput = document.getElementById('editTags').value;
+                book.tags = tagsInput.split(',').map(t => t.trim().toLowerCase()).filter(t => t);
+                
+                book.tags.forEach(tag => {
+                    if (!customTags.includes(tag)) customTags.push(tag);
+                });
+                
+                book.size = document.getElementById('editSize').value;
+                book.pages = parseInt(document.getElementById('editPages').value) || 0;
+                book.status = document.getElementById('editStatus').value;
+                
+                if (book.pages > 0) {
+                    book.size = autoDetermineSize(book.pages);
+                }
+                
+                if (book.status === 'read' && !book.dateRead) {
+                    book.dateRead = new Date().toISOString();
+                }
+                
+                await saveToStorage();
+                renderBooks();
+                renderTags();
+                updateStats();
+                closeModal('editBookModal');
+                showNotification('Изменения сохранены!');
+            }
+        }
+
+        async function openReader(bookId) {
+            const book = books.find(b => b.id === bookId);
+            if (book) {
+                currentBook = book;
+                currentPage = 1;
+                
+                document.getElementById('readerTitle').textContent = book.title;
+                
+                let content = bookContents[book.id];
+                if (!content) {
+                    content = await db.getContent(book.id);
+                    if (content) bookContents[book.id] = content;
+                }
+                
+                if (!content) {
+                    content = `📖 ${book.title}\n\nАвтор: ${book.author}\n\n⚠️ Содержимое книги не найдено.\n\nФайл: ${book.fileData || 'неизвестен'}\n\nНажмите ✏️ на карточке книги, затем 🔄 Перезагрузить содержимое.`;
+                }
+                
+                document.getElementById('readerContent').innerHTML = formatPageContent(content, 1);
+                document.getElementById('pageIndicator').textContent = `Страница 1 из ${Math.max(book.pages, 1)}`;
+                document.getElementById('readerContainer').classList.add('active');
+                
+                if (book.status === 'unread') {
+                    book.status = 'reading';
+                    await saveToStorage();
+                    renderBooks();
+                }
+            }
+        }
+
+        function generateFallbackText(book) {
+            return `${book.title}\n\nАвтор: ${book.author}\n\nСодержимое книги не было загружено. Перезагрузите файл книги.`;
+        }
+
+        function formatPageContent(content, pageNumber) {
+            const charsPerPage = 2000;
+            const start = (pageNumber - 1) * charsPerPage;
+            const end = start + charsPerPage;
+            
+            let pageText = content.substring(start, end);
+            
+            pageText = pageText
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\n/g, '<br>');
+            
+            return `<div class="reader-page"><p>${pageText}</p></div>`;
+        }
+
+        function nextPage() {
+            if (currentBook && currentPage < currentBook.pages) {
+                currentPage++;
+                updateReader();
+            }
+        }
+
+        function prevPage() {
+            if (currentBook && currentPage > 1) {
+                currentPage--;
+                updateReader();
+            }
+        }
+
+        function updateReader() {
+            if (currentBook) {
+                const content = bookContents[currentBook.id] || generateFallbackText(currentBook);
+                document.getElementById('readerContent').innerHTML = formatPageContent(content, currentPage);
+                document.getElementById('pageIndicator').textContent = `Страница ${currentPage} из ${currentBook.pages}`;
+            }
+        }
+
+        function changeFontSize(delta) {
+            fontSize += delta;
+            if (fontSize < 0.8) fontSize = 0.8;
+            if (fontSize > 2) fontSize = 2;
+            const readerText = document.querySelector('.reader-text');
+            if (readerText) readerText.style.fontSize = fontSize + 'rem';
+        }
+
+        function closeReader() {
+            document.getElementById('readerContainer').classList.remove('active');
+            currentBook = null;
+        }
+
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function showUploadModal() {
+            showModal('uploadModal');
+        }
+
+        function toggleView() {
+            const grid = document.getElementById('booksGrid');
+            if (grid.classList.contains('list-view')) {
+                grid.classList.remove('list-view');
+                grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(200px, 1fr))';
+            } else {
+                grid.classList.add('list-view');
+                grid.style.gridTemplateColumns = '1fr';
+            }
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
+        }
+
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        async function exportData() {
+            const data = await db.exportAllData();
+            const exportData = {
+                books: data.books,
+                folders: data.folders,
+                customTags: customTags,
+                customFandoms: customFandoms,
+                contents: data.contents
+            };
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'library_backup.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        async function importData(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        await db.importAllData(data);
+                        await loadFromStorage();
+                        renderBooks();
+                        renderFolders();
+                        renderTags();
+                        updateStats();
+                        updateFandomSelects();
+                        showNotification('Данные импортированы!');
+                    } catch (error) {
+                        console.error('Ошибка импорта:', error);
+                        showNotification('Ошибка импорта данных');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
+                closeReader();
+            }
+            if (e.key === 'ArrowRight' && currentBook) nextPage();
+            if (e.key === 'ArrowLeft' && currentBook) prevPage();
+        });
+
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
